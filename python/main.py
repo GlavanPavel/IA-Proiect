@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt  
 from DataRead import load_data_csv_module, normalize_data
 from GeneticAlgorithm import GeneticAlgorithm
 from NeuralNetwork import NeuralNetwork
@@ -16,15 +17,16 @@ output_size = 1
 nn = NeuralNetwork(input_size, hidden_size, output_size)
 ga = GeneticAlgorithm(nn, pop_size=50, mutation_rate=0.05)
 
+history_mse = [] 
 
 for generation in range(100):
     current_error = ga.evolve(inputs, targets)
+    
+    history_mse.append(current_error)
 
     if current_error < 0.2:
         print("eroare acceptabila atinsa")
         break
-
-
 
 final_scores = ga.evaluate_fitness(inputs, targets)
 best_idx = np.argmax(final_scores)
@@ -49,3 +51,13 @@ mean_diff = np.mean(np.abs(targets - final_predictions))
 print("-" * 55)
 print(f"Eroarea Medie Absoluta pe tot setul: {mean_diff:.4f}")
 print(f"(In medie, reteaua greseste nota cu +/- {mean_diff:.2f} puncte)")
+
+#graficul
+plt.figure(figsize=(10, 6))
+plt.plot(history_mse, label='Eroare (MSE)', color='blue')
+plt.title('Evolutia erorilor pe parcusul generatiilor')
+plt.xlabel('Generatii')
+plt.ylabel('Valoarea MSE')
+plt.grid(True)
+plt.legend()
+plt.show()
