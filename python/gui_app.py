@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import threading
 
-from DataRead import load_data_csv_module, normalize_data, normalize_data_test, split_data
+from DataRead import load_data_csv_module, normalize_data
 from GeneticAlgorithm import GeneticAlgorithm
 from NeuralNetwork import NeuralNetwork
 
@@ -38,36 +38,31 @@ class WineApp(ctk.CTk):
                                                 values=["winequality-red.csv", "winequality-white.csv"])
         self.dataset_option.grid(row=2, column=0, padx=20, pady=10)
 
-        # select train-test ratio
-        self.lbl_ratio = ctk.CTkLabel(self.sidebar_frame, text="Imparitre date in antrenare/testare: ")
-        self.lbl_ratio.grid(row=3, column=0, padx=20, pady=(10, 0))
-        self.split_option = ctk.CTkOptionMenu(self.sidebar_frame, values=["80/20", "70/30", "60/40", "50/50"])
-        self.split_option.grid(row=4, column=0, padx=20, pady=10)
 
         # numar generatii
         self.lbl_gen = ctk.CTkLabel(self.sidebar_frame, text="Numar Generatii:")
-        self.lbl_gen.grid(row=5, column=0, padx=20, pady=(10, 0))
+        self.lbl_gen.grid(row=3, column=0, padx=20, pady=(10, 0))
         self.entry_gen = ctk.CTkEntry(self.sidebar_frame, placeholder_text="100")
         self.entry_gen.insert(0, "100")
-        self.entry_gen.grid(row=6, column=0, padx=20, pady=5)
+        self.entry_gen.grid(row=4, column=0, padx=20, pady=5)
 
         self.lbl_mut = ctk.CTkLabel(self.sidebar_frame, text="Rata Mutatie: 0.05")
-        self.lbl_mut.grid(row=7, column=0, padx=20, pady=(10, 0))
+        self.lbl_mut.grid(row=5, column=0, padx=20, pady=(10, 0))
 
         self.slider_mut = ctk.CTkSlider(self.sidebar_frame, from_=0.01, to=0.5, number_of_steps=49,
                                         command=self.update_mutation_label)
         self.slider_mut.set(0.05)
-        self.slider_mut.grid(row=8, column=0, padx=20, pady=10)
+        self.slider_mut.grid(row=6, column=0, padx=20, pady=10)
 
         self.btn_start = ctk.CTkButton(self.sidebar_frame, text="START Antrenare", command=self.start_training_thread)
-        self.btn_start.grid(row=9, column=0, padx=20, pady=0)
+        self.btn_start.grid(row=7, column=0, padx=20, pady=10)
 
-        self.btn_start_testing = ctk.CTkButton(self.sidebar_frame, text="START Testare", command=self.testing_popup,state="disabled")
-        self.btn_start_testing.grid(row=10, column=0, padx=20, pady=5)
+        self.btn_start_testing = ctk.CTkButton(self.sidebar_frame, text="Vizualizare rezultate", command=self.view_results,state="disabled")
+        self.btn_start_testing.grid(row=8, column=0, padx=20, pady=10)
 
         # log
-        self.log_box = ctk.CTkTextbox(self.sidebar_frame, width=200, height=150)
-        self.log_box.grid(row=11, column=0, padx=10, pady=10, sticky="nsew")
+        self.log_box = ctk.CTkTextbox(self.sidebar_frame, width=200, height=160)
+        self.log_box.grid(row=9, column=0, padx=10, pady=20, sticky="nsew")
         self.log_box.insert("0.0", "Așteptare comandă...\n")
 
         # panou dreapta
@@ -124,24 +119,22 @@ class WineApp(ctk.CTk):
             self.btn_start.configure(state="normal")
             return
 
+        if generations < 10 or generations > 10000:
+            self.log("Eroare: Numarul de generatii trebuie sa fie intre 10 si 10000")
+            self.btn_start.configure(state="normal")
+            return
+
         # incarca datele
         try:
             self.log(f"Incarc fisierul: {filename}")
             raw_data = load_data_csv_module(filename)
-            train_test = {
-                "80/20": 0.8,
-                "70/30": 0.7,
-                "60/40": 0.6,
-                "50/50": 0.5
-            }
-            data_train, self.data_test = split_data(raw_data, train_test[self.split_option.get()])
-            inputs, targets, self.x_min, self.x_max = normalize_data(data_train)
+            self.inputs, self.targets = normalize_data(raw_data)
         except Exception as e:
             self.log(f"Eroare fisier: {e}")
             self.btn_start.configure(state="normal")
             return
 
-        input_size = inputs.shape[1]
+        input_size = self.inputs.shape[1]
         hidden_size = 15
         output_size = 1
 
@@ -153,7 +146,7 @@ class WineApp(ctk.CTk):
         history_mse = []
 
         for generation in range(generations):
-            current_error = ga.evolve(inputs, targets)
+            current_error = ga.evolve(self.inputs, self.targets)
             history_mse.append(current_error)
 
             # update log fiecare 10 generatii
@@ -164,8 +157,8 @@ class WineApp(ctk.CTk):
                 self.log("Eroare acceptabila atinsa!")
                 break
 
-        final_scores = ga.evaluate_fitness(inputs, targets)
-        best_idx = np.argmax(final_scores)
+        scores = ga.evaluate_fitness(self.inputs, self.targets)
+        best_idx = np.argmax(scores)
         self.best_weights = ga.population[best_idx]
 
         self.log(f"Finalizat. MSE Final: {history_mse[-1]:.4f}")
@@ -183,13 +176,13 @@ class WineApp(ctk.CTk):
         self.btn_start_testing.configure(state="normal")
 
     def to_right(self):
-        if self.data_test is None or len(self.predictions) == 0:
+        if self.nn is None or len(self.predictions) == 0:
             return
-        if self.start_idx + 100 < len(self.data_test):
+        if self.start_idx + 100 < len(self.predictions):
             self.start_idx += 100
             self.update_plot()
     def to_left(self):
-        if self.data_test is None:
+        if self.nn is None:
             return
         if self.start_idx - 100 >= 0:
             self.start_idx -= 100
@@ -200,9 +193,9 @@ class WineApp(ctk.CTk):
         self.ax.clear()
         self.ax.plot(self.targets, label='Rezultat asteptat', color='purple', linewidth=2)
         self.ax.plot(self.predictions, label='Rezultat obtinut', color='cyan', linewidth=2)
-        self.ax.set_title(f'Rezultat testare')
-        self.ax.set_xlabel('Test')
-        self.ax.set_ylabel('Rezultat')
+        self.ax.set_title(f'Rezultate antrenare')
+        self.ax.set_xlabel('Index mostra')
+        self.ax.set_ylabel('Scor')
         self.ax.grid(True)
         self.ax.legend()
 
@@ -213,7 +206,7 @@ class WineApp(ctk.CTk):
         self.btn_start.configure(state="normal")
         self.btn_start_testing.configure(state="normal")
 
-    def testing_popup(self):
+    def view_results(self):
         if self.nn is None:
             self.log("Nu exista un model antrenat")
             return
@@ -222,13 +215,8 @@ class WineApp(ctk.CTk):
         self.btn_left.configure(state="normal")
         self.btn_right.configure(state="mormal")
         self.log("-" * 20)
-        self.log("Incepe testarea...")
 
-        self.inputs, self.targets = normalize_data_test(self.data_test, self.x_min, self.x_max)
         self.predictions = self.nn.forward(self.inputs, self.best_weights)
-
-        mse_test = np.mean((self.targets - self.predictions) ** 2)
-        self.log(f"Test finalizat. MSE: {mse_test:.4f}")
 
         self.start_idx = 0
         self.update_plot()

@@ -5,7 +5,7 @@ from GeneticAlgorithm import GeneticAlgorithm
 from NeuralNetwork import NeuralNetwork
 
 raw_data = load_data_csv_module('winequality-red.csv')
-inputs, targets, x_min, x_max = normalize_data(raw_data)
+inputs, targets = normalize_data(raw_data)
 
 print(f"Date incarcate: {inputs.shape[0]} vinuri.")
 print(f"Numar caracteristici (input_size): {inputs.shape[1]}")
@@ -20,7 +20,7 @@ ga = GeneticAlgorithm(nn, pop_size=50, mutation_rate=0.05)
 history_mse = [] 
 
 for generation in range(100):
-    current_error= ga.evolve(inputs, targets)
+    current_error = ga.evolve(inputs, targets)
     
     history_mse.append(current_error)
 

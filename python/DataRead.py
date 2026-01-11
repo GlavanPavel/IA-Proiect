@@ -25,24 +25,4 @@ def normalize_data(data):
 
     x_normalized = (x - x_min) / (x_max - x_min)
 
-    return x_normalized, y, x_min, x_max
-
-def split_data(data, train_size):
-    indices = np.random.permutation(len(data))
-    split_point = int(len(data) * train_size)
-
-    train_indices = indices[:split_point]
-    test_indices = indices[split_point:]
-
-    train_data = data[train_indices]
-    test_data = data[test_indices]
-
-    return train_data, test_data
-
-def normalize_data_test(data, x_min, x_max):
-    x = data[:, :-1]
-    y = data[:, -1].reshape(-1, 1)
-
-    x_normalized = (x - x_min) / (x_max - x_min)
-
     return x_normalized, y
