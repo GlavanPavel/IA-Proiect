@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import threading
+import time
 
 from DataRead import load_data_csv_module, normalize_data
 from GeneticAlgorithm import GeneticAlgorithm
@@ -18,7 +19,7 @@ class WineApp(ctk.CTk):
 
 
         self.title("Wine Quality Neuro-Evolution")
-        self.geometry("1100x650")
+        self.geometry("1100x600")
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -119,8 +120,8 @@ class WineApp(ctk.CTk):
             self.btn_start.configure(state="normal")
             return
 
-        if generations < 10 or generations > 10000:
-            self.log("Eroare: Numarul de generatii trebuie sa fie intre 10 si 10000")
+        if generations <= 0:
+            self.log("Eroare: Numarul de generatii trebuie sa fie mai mare de 0")
             self.btn_start.configure(state="normal")
             return
 
@@ -140,6 +141,7 @@ class WineApp(ctk.CTk):
 
         self.log(f"Input: {input_size}, Hidden: {hidden_size}")
 
+        start_time = time.time()
         self.nn = NeuralNetwork(input_size, hidden_size, output_size)
         ga = GeneticAlgorithm(self.nn, pop_size=50, mutation_rate=mutation_rate)
 
@@ -161,8 +163,10 @@ class WineApp(ctk.CTk):
         best_idx = np.argmax(scores)
         self.best_weights = ga.population[best_idx]
 
-        self.log(f"Finalizat. MSE Final: {history_mse[-1]:.4f}")
+        exc_time = time.time() - start_time
 
+        self.log(f"Finalizat. MSE Final: {history_mse[-1]:.4f}")
+        self.log(f"Timp executie: {exc_time:.2f} secunde")
         self.ax.clear()
         self.ax.plot(history_mse, label='Eroare (MSE)', color='cyan')
         self.ax.set_title(f'Rezultat: {filename} (Mutatie: {mutation_rate:.2f})')
@@ -194,7 +198,7 @@ class WineApp(ctk.CTk):
         self.ax.plot(self.targets, label='Rezultat asteptat', color='purple', linewidth=2)
         self.ax.plot(self.predictions, label='Rezultat obtinut', color='cyan', linewidth=2)
         self.ax.set_title(f'Rezultate antrenare')
-        self.ax.set_xlabel('Index mostra')
+        self.ax.set_xlabel('Index')
         self.ax.set_ylabel('Scor')
         self.ax.grid(True)
         self.ax.legend()
@@ -203,8 +207,6 @@ class WineApp(ctk.CTk):
         self.ax.set_xlim(self.start_idx, end_idx)
         self.canvas.draw()
 
-        self.btn_start.configure(state="normal")
-        self.btn_start_testing.configure(state="normal")
 
     def view_results(self):
         if self.nn is None:
@@ -213,13 +215,18 @@ class WineApp(ctk.CTk):
         self.btn_start.configure(state="disabled")
         self.btn_start_testing.configure(state="disabled")
         self.btn_left.configure(state="normal")
-        self.btn_right.configure(state="mormal")
+        self.btn_right.configure(state="normal")
         self.log("-" * 20)
 
-        self.predictions = self.nn.forward(self.inputs, self.best_weights)
-
+        self.predictions = np.round(self.nn.forward(self.inputs, self.best_weights))
+        corect = np.sum(self.targets - self.predictions == 0)
+        accuracy = corect / len(self.targets)*100
+        self.log(f"Rezultatul este atins in {accuracy:.2f}% din cazuri")
         self.start_idx = 0
         self.update_plot()
+
+        self.btn_start.configure(state="normal")
+        self.btn_start_testing.configure(state="normal")
 
 
 
